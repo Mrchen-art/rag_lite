@@ -1,0 +1,21 @@
+# 密钥配置在
+config.json
+
+# Python 缓存与编译产物
+__pycache__/
+*.py[cod]
+*.pyc
+
+# 虚拟环境
+.venv/
+venv/
+
+# 编辑器与系统
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+#数据
+data/
+

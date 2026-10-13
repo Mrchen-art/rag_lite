@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RAG-Lite · 本地知识库问答系统</title>
+<style>
+  :root{
+    --bg:#f5f6f8; --card:#ffffff; --line:#e3e6ea; --text:#1f2328;
+    --muted:#6b7280; --brand:#2563eb; --brand-soft:#eff4ff;
+    --ok:#0f9d58; --warn:#b54708; --radius:12px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+    background:var(--bg); color:var(--text); line-height:1.65; padding:24px 16px 60px;
+  }
+  .wrap{max-width:920px;margin:0 auto}
+  header{margin-bottom:20px}
+  h1{font-size:24px;font-weight:650;letter-spacing:-.2px}
+  h1 span{color:var(--brand)}
+  .sub{color:var(--muted);font-size:14px;margin-top:6px}
+  .stats{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+  .stat{background:var(--card);border:1px solid var(--line);border-radius:8px;
+        padding:8px 14px;font-size:13px;color:var(--muted)}
+  .stat b{color:var(--text);font-weight:600;margin-left:4px}
+
+  .panel{background:var(--card);border:1px solid var(--line);
+         border-radius:var(--radius);padding:18px;margin-bottom:16px}
+  .modes{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}
+  .mode{padding:6px 14px;border:1px solid var(--line);border-radius:20px;
+        font-size:13px;color:var(--muted);cursor:pointer;background:#fff;
+        transition:.15s;user-select:none}
+  .mode:hover{border-color:#c7d2fe}
+  .mode.on{background:var(--brand);border-color:var(--brand);color:#fff}
+  .mode small{opacity:.75;margin-left:4px}
+
+  .ask{display:flex;gap:10px}
+  input[type=text]{
+    flex:1;padding:11px 14px;border:1px solid var(--line);border-radius:9px;
+    font-size:15px;outline:none;transition:.15s;background:#fff;color:var(--text)}
+  input[type=text]:focus{border-color:var(--brand);box-shadow:0 0 0 3px rgba(37,99,235,.12)}
+  button.primary{
+    padding:11px 22px;background:var(--brand);color:#fff;border:none;
+    border-radius:9px;font-size:15px;cursor:pointer;font-weight:500;transition:.15s}
+  button.primary:hover{background:#1d4ed8}
+  button.primary:disabled{background:#93b4f7;cursor:not-allowed}
+
+  .chips{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+  .chip{font-size:12.5px;color:var(--muted);background:var(--brand-soft);
+        border:1px solid #dbe6ff;border-radius:16px;padding:5px 12px;cursor:pointer;transition:.15s}
+  .chip:hover{background:#dfe9ff;color:var(--brand)}
+
+  .meta{display:flex;gap:14px;flex-wrap:wrap;font-size:12.5px;color:var(--muted);margin-bottom:12px}
+  .tag{background:#f1f3f5;border-radius:5px;padding:2px 8px}
+  .answer{font-size:15.5px;white-space:pre-wrap}
+  .answer .line{padding:6px 0 6px 14px;border-left:3px solid var(--line)}
+  .answer .line:hover{border-left-color:var(--brand)}
+
+  h3{font-size:14px;font-weight:600;margin:18px 0 10px;color:var(--text)}
+  .cite{border:1px solid var(--line);border-radius:9px;padding:11px 13px;margin-bottom:9px;background:#fbfcfd}
+  .cite .t{font-size:13px;font-weight:600;margin-bottom:4px}
+  .cite .t em{font-style:normal;color:var(--muted);font-weight:400;font-size:12px;margin-left:8px}
+  .cite .s{font-size:13px;color:var(--muted)}
+
+  details{margin-top:14px;border-top:1px solid var(--line);padding-top:12px}
+  summary{cursor:pointer;font-size:13.5px;color:var(--muted);user-select:none}
+  summary:hover{color:var(--brand)}
+  table{width:100%;border-collapse:collapse;margin-top:12px;font-size:12.5px}
+  th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{color:var(--muted);font-weight:600;background:#fafbfc}
+  td.num{font-variant-numeric:tabular-nums;color:var(--muted);white-space:nowrap}
+  .bar{height:5px;background:var(--brand);border-radius:3px;min-width:2px}
+
+  .empty{text-align:center;color:var(--muted);padding:44px 20px;font-size:14px}
+  .empty .big{font-size:34px;margin-bottom:10px}
+  .err{background:#fef3f2;border:1px solid #fecdc9;color:#b42318;
+       padding:11px 14px;border-radius:9px;font-size:14px;margin-bottom:16px}
+  .spin{display:inline-block;width:13px;height:13px;border:2px solid #c7d2fe;
+        border-top-color:var(--brand);border-radius:50%;animation:r .7s linear infinite;
+        vertical-align:-2px;margin-right:7px}
+  @keyframes r{to{transform:rotate(360deg)}}
+  footer{text-align:center;color:var(--muted);font-size:12.5px;margin-top:26px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>RAG<span>-Lite</span> · 本地知识库问答系统</h1>
+    <div class="sub">稀疏检索 BM25 + 稠密检索 TF-IDF，通过 RRF 融合排序；零第三方依赖，纯 Python 标准库实现</div>
+    <div class="stats" id="stats"></div>
+  </header>
+
+  <div class="panel">
+    <div class="modes" id="modes">
+      <div class="mode on" data-mode="hybrid">混合检索<small>RRF 融合</small></div>
+      <div class="mode" data-mode="bm25">BM25<small>稀疏</small></div>
+      <div class="mode" data-mode="vector">向量检索<small>稠密</small></div>
+    </div>
+    <div class="ask">
+      <input type="text" id="q" placeholder="输入你的问题，例如：RAG 的标准流程包含哪些环节" autocomplete="off">
+      <button class="primary" id="go">提问</button>
+    </div>
+    <div class="chips" id="chips"></div>
+  </div>
+
+  <div id="err"></div>
+  <div class="panel" id="result">
+    <div class="empty">
+      <div class="big">🔍</div>
+      在上方输入问题，或点击一个示例开始<br>系统会从知识库中检索相关内容并生成带来源引用的答案
+    </div>
+  </div>
+
+  <footer>Python 标准库实现 · 无外部依赖 · 数据全部在本地处理</footer>
+</div>
+
+<script>
+const $ = s => document.querySelector(s);
+let mode = 'hybrid', loading = false;
+
+const AMP = '&' + 'amp;', LT = '&' + 'lt;', GT = '&' + 'gt;';
+const QUOT = '&' + 'quot;', APOS = '&' + '#39;';
+const ESC_MAP = {'&': AMP, '<': LT, '>': GT, '"': QUOT, "'": APOS};
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ESC_MAP[c]);
+
+function setMode(m){
+  mode = m;
+  document.querySelectorAll('.mode').forEach(el => el.classList.toggle('on', el.dataset.mode === m));
+}
+
+async function init(){
+  try{
+    const st = await (await fetch('/api/stats')).json();
+    $('#stats').innerHTML = [
+      ['文档', st.doc_count], ['文本块', st.chunk_count],
+      ['词表', st.vocab_size], ['平均块长', st.avg_chunk_len + ' 字'],
+      ['生成模式', st.llm_enabled ? '大模型' : '抽取式']
+    ].map(([k,v]) => `<div class="stat">${k}<b>${esc(v)}</b></div>`).join('');
+    const sg = await (await fetch('/api/suggest')).json();
+    $('#chips').innerHTML = (sg.questions || [])
+      .map(q => `<div class="chip" data-q="${esc(q)}">${esc(q)}</div>`).join('');
+    $('#chips').onclick = e => {
+      const c = e.target.closest('.chip');
+      if (c){ $('#q').value = c.dataset.q; ask(); }
+    };
+  }catch(e){ /* 静态打开时忽略 */ }
+}
+
+async function ask(){
+  if (loading) return;
+  const q = $('#q').value.trim();
+  if (!q) return;
+  loading = true;
+  $('#go').disabled = true;
+  $('#err').innerHTML = '';
+  $('#result').innerHTML = `<div class="empty"><span class="spin"></span>正在检索知识库…</div>`;
+
+  try{
+    const res = await fetch('/api/ask', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({query:q, mode, top_k:3})
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || '请求失败');
+    render(data);
+  }catch(e){
+    $('#result').innerHTML = `<div class="empty">在上方输入问题开始检索</div>`;
+    $('#err').innerHTML = `请求失败：${esc(e.message)}`;
+  }finally{
+    loading = false; $('#go').disabled = false;
+  }
+}
+
+function render(d){
+  const lines = d.answer.split('\n').filter(x => x.trim())
+    .map(l => `<div class="line">${esc(l.replace(/^·\s*/,''))}</div>`).join('');
+
+  const cites = (d.citations || []).map(c => `
+    <div class="cite">
+      <div class="t">《${esc(c.title)}》<em>相关度 ${esc(c.score)}</em></div>
+      <div class="s">${esc(c.snippet)}…</div>
+    </div>`).join('');
+
+  const rows = (d.hits || []).map(h => `
+    <tr>
+      <td class="num">${h.rank}</td>
+      <td>${esc(h.title)}</td>
+      <td class="num">
+        ${(h.score*100).toFixed(1)}
+        <div class="bar" style="width:${Math.max(3, h.score*100)}px"></div>
+      </td>
+      <td class="num">${h.bm25_score.toFixed(3)}</td>
+      <td class="num">${h.vector_score.toFixed(3)}</td>
+      <td>${esc(h.text.slice(0,70))}…</td>
+    </tr>`).join('');
+
+  $('#result').innerHTML = `
+    <div class="meta">
+      <span class="tag">检索：${{bm25:'BM25',vector:'向量',hybrid:'混合 RRF'}[d.mode]}</span>
+      <span class="tag">生成：${d.generation === 'llm' ? '大模型' : '抽取式'}</span>
+      <span class="tag">耗时：${d.latency_ms} ms</span>
+      <span class="tag">命中 ${(d.hits||[]).length} 个文本块</span>
+    </div>
+    ${d.answer.startsWith('未检索到')
+      ? `<div class="answer">${esc(d.answer)}</div>`
+      : `<h3>回答</h3><div class="answer">${lines}</div>`}
+    ${cites ? `<h3>参考来源</h3>${cites}` : ''}
+    ${rows ? `<details open><summary>查看检索明细（各路得分与融合结果）</summary>
+      <table>
+        <thead><tr><th>#</th><th>来源文档</th><th>融合分</th><th>BM25</th><th>向量</th><th>内容预览</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table></details>` : ''}
+  `;
+}
+
+document.querySelectorAll('.mode').forEach(el => el.onclick = () => setMode(el.dataset.mode));
+$('#go').onclick = ask;
+$('#q').addEventListener('keydown', e => { if (e.key === 'Enter') ask(); });
+init();
+</script>
+</body>
+</html>
