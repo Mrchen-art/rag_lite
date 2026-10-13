@@ -32,17 +32,11 @@ python app.py --tune         # 划分 dev/test，网格搜索 RRF 融合权重
 
 默认**不调用任何大模型**，用抽取式答案也能完整运行。想启用大模型生成，填一次即可：
 
-1. 把 `config.example.json` 复制为 `config.json`（仓库里已经为你建好）
-2. 把 `llm_api_key` 换成你自己的 Key
-3. 直接 `python app.py`，启动横幅显示「大模型生成：已启用」就生效了
+1. 在config.json文件中把 `llm_api_key` 换成你自己的 Key
+2. 直接 `python app.py`，启动横幅显示「大模型生成：已启用」就生效了
 
 取值优先级：`--llm-key` 命令行 > 环境变量 `LLM_API_KEY` > `config.json`。
 接口是 OpenAI 兼容格式，所以 DeepSeek、通义、Kimi、本地 Ollama 都能直接换地址用。
-
-> ⚠️ **安全提醒**：`config.json` 已被 `.gitignore` 排除，**不会提交到 GitHub**。
-> 请**不要**把 Key 写进任何 `.py` 文件——仓库一旦设为公开，Key 就泄露了。
-> 如果忘了填、直接复制了模板，程序会把占位文本当作"未配置"处理，自动回落到抽取式答案。
-
 ## 3. 整体架构
 
 ```
@@ -78,7 +72,7 @@ python app.py --tune         # 划分 dev/test，网格搜索 RRF 融合权重
 | 仅 unigram | 0.8660 |
 | unigram + bigram | **0.8953** |
 
-这一处改动就带来 3.4 个点的提升，也是本项目里性价比最高的一次优化。
+这一处改动就带来绝对提升约 2.9 个百分点，相对提升约 3.4%，也是本项目里性价比最高的一次优化。
 
 ### 4.3 BM25
 
